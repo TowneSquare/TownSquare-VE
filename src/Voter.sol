@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {IVotingRewardsFactory} from "./interfaces/factories/IVotingRewardsFactory.sol";
+import {
+    IVotingRewardsFactory
+} from "./interfaces/factories/IVotingRewardsFactory.sol";
 import {IGauge} from "./interfaces/IGauge.sol";
 import {IGaugeFactory} from "./interfaces/factories/IGaugeFactory.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
@@ -13,10 +15,15 @@ import {IVoter} from "./interfaces/IVoter.sol";
 import {IVotingEscrow} from "./interfaces/IVotingEscrow.sol";
 import {IFactoryRegistry} from "./interfaces/factories/IFactoryRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
-
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ERC2771Context
+} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TownsquareTimeLibrary} from "./libraries/TownsquareTimeLibrary.sol";
 
 /// @title Velodrome V2 Voter
@@ -106,22 +113,22 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
     modifier onlyNewEpoch(uint256 _tokenId) {
         // ensure new epoch since last vote
         if (
-            VelodromeTimeLibrary.epochStart(block.timestamp) <=
+            TownsquareTimeLibrary.epochStart(block.timestamp) <=
             lastVoted[_tokenId]
         ) revert AlreadyVotedOrDeposited();
         if (
             block.timestamp <=
-            VelodromeTimeLibrary.epochVoteStart(block.timestamp)
+            TownsquareTimeLibrary.epochVoteStart(block.timestamp)
         ) revert DistributeWindow();
         _;
     }
 
     function epochStart(uint256 _timestamp) external pure returns (uint256) {
-        return VelodromeTimeLibrary.epochStart(_timestamp);
+        return TownsquareTimeLibrary.epochStart(_timestamp);
     }
 
     function epochNext(uint256 _timestamp) external pure returns (uint256) {
-        return VelodromeTimeLibrary.epochNext(_timestamp);
+        return TownsquareTimeLibrary.epochNext(_timestamp);
     }
 
     function epochVoteStart(
@@ -225,7 +232,7 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
             revert NotApprovedOrOwner();
         if (
             block.timestamp <=
-            VelodromeTimeLibrary.epochVoteStart(block.timestamp)
+            TownsquareTimeLibrary.epochVoteStart(block.timestamp)
         ) revert DistributeWindow();
         uint256 _weight = IVotingEscrow(ve).balanceOfNFT(_tokenId);
         _poke(_tokenId, _weight);
@@ -334,7 +341,7 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
             revert InactiveManagedNFT();
         _reset(_tokenId);
         uint256 _timestamp = block.timestamp;
-        if (_timestamp > VelodromeTimeLibrary.epochVoteEnd(_timestamp))
+        if (_timestamp > TownsquareTimeLibrary.epochVoteEnd(_timestamp))
             revert SpecialVotingWindow();
         lastVoted[_tokenId] = _timestamp;
         IVotingEscrow(ve).depositManaged(_tokenId, _mTokenId);
@@ -537,10 +544,20 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
     }
 
     /// @inheritdoc IVoter
-    function claimRewards(address[] memory _gauges) external {
+    function claimRewards(
+        address[] memory _gauges,
+        bytes32 _accountId,
+        uint16 _chainId,
+        bytes32[] memory _accountLoans
+    ) external {
         uint256 _length = _gauges.length;
         for (uint256 i = 0; i < _length; i++) {
-            IGauge(_gauges[i]).getReward(_msgSender());
+            IGauge(_gauges[i]).getReward(
+                _msgSender(),
+                _accountId,
+                _chainId,
+                _accountLoans
+            );
         }
     }
 

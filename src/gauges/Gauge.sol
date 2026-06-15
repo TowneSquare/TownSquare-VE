@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IReward} from "../interfaces/IReward.sol";
@@ -8,11 +8,21 @@ import {IPool} from "../interfaces/IPool.sol";
 import {IVoter} from "../interfaces/IVoter.sol";
 import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ERC2771Context
+} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TownsquareTimeLibrary} from "../libraries/TownsquareTimeLibrary.sol";
+import {Utils} from "../libraries/Utils.sol";
 import {IGaugeFactory} from "../interfaces/factories/IGaugeFactory.sol";
+import {IAccountManager} from "../interfaces/IAccountManager.sol";
+import {Messages} from "../libraries/Message.sol";
+import {ILoanManager} from "../interfaces/ILoanManager.sol";
 
 /// @title Velodrome V2 Gauge
 /// @author veldorome.finance, @figs999, @pegahcarter
@@ -24,37 +34,53 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
     address public immutable stakingToken;
     /// @inheritdoc IGauge
     address public immutable rewardToken;
+
+    address public immutable accountManager;
+
+    address public immutable loanManager;
     /// @inheritdoc IGauge
     address public immutable feesVotingReward;
     /// @inheritdoc IGauge
     address public immutable voter;
     /// @inheritdoc IGauge
     address public immutable gaugeFactory;
-
     /// @inheritdoc IGauge
     bool public immutable isPool;
 
     uint256 internal constant DURATION = 7 days; // rewards are released over 7 days
+
     uint256 internal constant PRECISION = 10 ** 18;
 
     /// @inheritdoc IGauge
     uint256 public periodFinish;
     /// @inheritdoc IGauge
-    uint256 public rewardRate;
+    uint256 public collateralRewardRate;
+
+    uint256 public borrowRewardRate;
     /// @inheritdoc IGauge
     uint256 public lastUpdateTime;
     /// @inheritdoc IGauge
-    uint256 public rewardPerTokenStored;
+    uint256 public collateralRewardPerTokenStored;
+
+    uint256 public borrowRewardPerTokenStored;
     /// @inheritdoc IGauge
-    uint256 public totalSupply;
+    uint256 public totalCollateral;
+    /// @inheritdoc IGauge
+    uint256 public totalBorrow;
     /// @inheritdoc IGauge
     mapping(address => uint256) public balanceOf;
     /// @inheritdoc IGauge
-    mapping(address => uint256) public userRewardPerTokenPaid;
+    mapping(address => uint256) public userCollateralRewardPerTokenPaid;
     /// @inheritdoc IGauge
-    mapping(address => uint256) public rewards;
+    mapping(address => uint256) public userBorrowRewardPerTokenPaid;
     /// @inheritdoc IGauge
-    mapping(uint256 => uint256) public rewardRateByEpoch;
+    mapping(address => uint256) public collateralRewards;
+    /// @inheritdoc IGauge
+    mapping(address => uint256) public borrowRewards;
+    /// @inheritdoc IGauge
+    mapping(uint256 => uint256) public collateralRewardRateByEpoch;
+    /// @inheritdoc IGauge
+    mapping(uint256 => uint256) public borrowRewardRateByEpoch;
 
     /// @inheritdoc IGauge
     uint256 public fees0;
@@ -63,31 +89,57 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
 
     constructor(
         address _forwarder,
-        address _stakingToken,
-        address _feesVotingReward,
-        address _rewardToken,
+        address _pool,
+        address _rewardToken, /// TOWN
         address _voter,
+        address _accountManager,
+        address _loanManager,
         bool _isPool
     ) ERC2771Context(_forwarder) {
-        stakingToken = _stakingToken;
-        feesVotingReward = _feesVotingReward;
         rewardToken = _rewardToken;
         voter = _voter;
+        accountManager = _accountManager;
+        loanManager = _loanManager;
         isPool = _isPool;
         gaugeFactory = msg.sender;
     }
 
     /// @inheritdoc IGauge
-    function rewardPerToken() public view returns (uint256) {
-        if (totalSupply == 0) {
-            return rewardPerTokenStored;
+    // function rewardPerToken() public view returns (uint256) {
+    //     if (totalSupply == 0) {
+    //         return rewardPerTokenStored;
+    //     }
+    //     return
+    //         rewardPerTokenStored +
+    //         ((lastTimeRewardApplicable() - lastUpdateTime) *
+    //             rewardRate *
+    //             PRECISION) /
+    //         totalSupply;
+    // }
+
+    function collateralRewardPerToken() public view returns (uint256) {
+        if (totalCollateral == 0) {
+            return collateralRewardPerTokenStored;
+        }
+
+        return
+            collateralRewardPerTokenStored +
+            ((lastTimeRewardApplicable() - lastUpdateTime) *
+                collateralRewardRate *
+                PRECISION) /
+            totalCollateral;
+    }
+
+    function borrowRewardPerToken() public view returns (uint256) {
+        if (totalBorrow == 0) {
+            return borrowRewardPerTokenStored;
         }
         return
-            rewardPerTokenStored +
+            borrowRewardPerTokenStored +
             ((lastTimeRewardApplicable() - lastUpdateTime) *
-                rewardRate *
+                borrowRewardRate *
                 PRECISION) /
-            totalSupply;
+            totalBorrow;
     }
 
     /// @inheritdoc IGauge
@@ -96,74 +148,136 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
     }
 
     /// @inheritdoc IGauge
-    function getReward(address _account) external nonReentrant {
+    function getReward(
+        address _account,
+        bytes32 _accountId,
+        uint16 _chainId,
+        bytes32[] memory _accountLoans
+    ) external nonReentrant {
         address sender = _msgSender();
-        if (sender != _account && sender != voter) revert NotAuthorized();
+        bool isRegistered = IAccountManager(accountManager)
+            .isAddressRegisteredToAccount(
+                _accountId,
+                _chainId,
+                Messages.convertEVMAddressToGenericAddress(_account)
+            );
+        if (sender != _account && sender != voter && !isRegistered)
+            revert NotAuthorized();
 
-        _updateRewards(_account);
+        _updateRewards(_account, _accountLoans, _chainId);
 
-        uint256 reward = rewards[_account];
+        uint256 reward;
+
+        if (collateralRewards[_account] > 0) {
+            reward += collateralRewards[_account];
+            collateralRewards[_account] = 0;
+        }
+
+        if (borrowRewards[_account] > 0) {
+            reward += borrowRewards[_account];
+            borrowRewards[_account] = 0;
+        }
+
         if (reward > 0) {
-            rewards[_account] = 0;
+            //rewards[_account] = 0;
             IERC20(rewardToken).safeTransfer(_account, reward);
             emit ClaimRewards(_account, reward);
         }
     }
 
     /// @inheritdoc IGauge
-    function earned(address _account) public view returns (uint256) {
-        return
-            (balanceOf[_account] *
-                (rewardPerToken() - userRewardPerTokenPaid[_account])) /
+    function earned(
+        address _account,
+        bytes32[] memory _accountLoans,
+        uint16 _chainId
+    ) public view returns (uint256, uint256) {
+        bytes32 userAccountId = IAccountManager(accountManager)
+            .getAccountIdOfAddressOnChain(
+                Messages.convertEVMAddressToGenericAddress(_account),
+                _chainId
+            );
+        uint256 collateralBalance;
+        uint256 borrowBalance;
+        uint256 loanCnt = _accountLoans.length;
+        uint256 poolId = IPool(stakingToken).getPoolId();
+
+        for (uint256 i = 0; i < loanCnt; i++) {
+            (
+                bytes32 accountId,
+                uint16 loanTypeId,
+                uint8[] memory colPools,
+                uint8[] memory borPools,
+                ILoanManager.UserLoanCollateral[] memory collateral,
+                ILoanManager.UserLoanBorrow[] memory borrow
+            ) = ILoanManager(loanManager).getUserLoan(_accountLoans[i]); // need to add loanManger address
+            /// check user is the owner of the loans
+
+            if (userAccountId != accountId) {
+                revert NotAuthorized();
+            }
+
+            for (uint256 i = 0; i < colPools.length; i++) {
+                if (colPools[i] == poolId) {
+                    collateralBalance += collaterals[i].balance; // Use fToken balance
+                    break;
+                }
+            }
+
+            for (uint256 i = 0; i < borPools.length; i++) {
+                if (borPools[i] == poolId) {
+                    borrowBalance += borrow[i].amount;
+                    break;
+                }
+            }
+        }
+
+        uint256 depositInterestIndexAtT = IPool(stakingToken)
+            .getDepositData()
+            .interestIndex;
+
+        // convert fToken to underlying amount
+        uint256 collateralReward = (Utils.toUnderlingAmount(
+            collateralBalance,
+            depositInterestIndexAtT
+        ) *
+            (collateralRewardPerToken() -
+                userCollateralRewardPerTokenPaid[_account])) /
             PRECISION +
-            rewards[_account];
+            collateralRewards[_account];
+
+        uint256 borrowReward = (borrowBalance *
+            (borrowRewardPerToken() - userBorrowRewardPerTokenPaid[_account])) /
+            PRECISION +
+            borrowRewards[_account];
+
+        return (collateralReward, borrowReward);
     }
 
-    /// @inheritdoc IGauge
-    function deposit(uint256 _amount) external {
-        _depositFor(_amount, _msgSender());
-    }
-
-    /// @inheritdoc IGauge
-    function deposit(uint256 _amount, address _recipient) external {
-        _depositFor(_amount, _recipient);
-    }
-
-    function _depositFor(
-        uint256 _amount,
-        address _recipient
-    ) internal nonReentrant {
-        if (_amount == 0) revert ZeroAmount();
-        if (!IVoter(voter).isAlive(address(this))) revert NotAlive();
-
-        address sender = _msgSender();
-        _updateRewards(_recipient);
-
-        IERC20(stakingToken).safeTransferFrom(sender, address(this), _amount);
-        totalSupply += _amount;
-        balanceOf[_recipient] += _amount;
-
-        emit Deposit(sender, _recipient, _amount);
-    }
-
-    /// @inheritdoc IGauge
-    function withdraw(uint256 _amount) external nonReentrant {
-        address sender = _msgSender();
-
-        _updateRewards(sender);
-
-        totalSupply -= _amount;
-        balanceOf[sender] -= _amount;
-        IERC20(stakingToken).safeTransfer(sender, _amount);
-
-        emit Withdraw(sender, _amount);
-    }
-
-    function _updateRewards(address _account) internal {
-        rewardPerTokenStored = rewardPerToken();
+    function _updateRewards(
+        address _account,
+        bytes32[] memory accountLoans,
+        uint16 chainId
+    ) internal {
+        totalCollateral = IPool(stakingToken).getDepositData().totalAmount;
+        totalBorrow =
+            IPool(stakingToken).getStableBorrowData().totalAmount +
+            IPool(stakingToken).getVariableBorrowData().totalAmount;
+        collateralRewardPerTokenStored = collateralRewardPerToken();
+        borrowRewardPerTokenStored = borrowRewardPerToken();
         lastUpdateTime = lastTimeRewardApplicable();
-        rewards[_account] = earned(_account);
-        userRewardPerTokenPaid[_account] = rewardPerTokenStored;
+        (uint256 collateralReward, uint256 borrowReward) = earned(
+            _account,
+            accountLoans,
+            chainId
+        );
+        collateralRewards[_account] = collateralReward;
+        borrowRewards[_account] = borrowReward;
+        //userRewardPerTokenPaid[_account] = rewardPerTokenStored;
+        userCollateralRewardPerTokenPaid[
+            _account
+        ] = collateralRewardPerTokenStored;
+
+        userBorrowRewardPerTokenPaid[_account] = borrowRewardPerTokenStored;
     }
 
     /// @inheritdoc IGauge
@@ -192,10 +306,13 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
     }
 
     function _notifyRewardAmount(address sender, uint256 _amount) internal {
-        rewardPerTokenStored = rewardPerToken();
+        // rewardPerTokenStored = rewardPerToken();
         uint256 timestamp = block.timestamp;
         uint256 timeUntilNext = TownsquareTimeLibrary.epochNext(timestamp) -
             timestamp;
+
+        uint256 collateralAmount = (_amount * 4000) / 10000;
+        uint256 borrowAmount = (_amount * 6000) / 10000;
 
         if (timestamp >= periodFinish) {
             IERC20(rewardToken).safeTransferFrom(
@@ -203,28 +320,44 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
                 address(this),
                 _amount
             );
-            rewardRate = _amount / timeUntilNext;
+            //rewardRate = _amount / timeUntilNext;
+            collateralRewardRate = collateralAmount / timeUntilNext;
+            borrowRewardRate = borrowAmount / timeUntilNext;
         } else {
             uint256 _remaining = periodFinish - timestamp;
-            uint256 _leftover = _remaining * rewardRate;
+            //uint256 _leftover = _remaining * rewardRate;
+            uint256 _collateralLeftover = _remaining * collateralRewardRate;
+            uint256 _borrowLeftover = _remaining * borrowRewardRate;
             IERC20(rewardToken).safeTransferFrom(
                 sender,
                 address(this),
                 _amount
             );
-            rewardRate = (_amount + _leftover) / timeUntilNext;
+            //rewardRate = (_amount + _leftover) / timeUntilNext;
+            collateralRewardRate =
+                (collateralAmount + _collateralLeftover) /
+                timeUntilNext;
+            borrowRewardRate = (borrowAmount + _borrowLeftover) / timeUntilNext;
         }
-        rewardRateByEpoch[
+        borrowRewardRateByEpoch[
             TownsquareTimeLibrary.epochStart(timestamp)
-        ] = rewardRate;
-        if (rewardRate == 0) revert ZeroRewardRate();
+        ] = borrowRewardRate;
+
+        collateralRewardRateByEpoch[
+            TownsquareTimeLibrary.epochStart(timestamp)
+        ] = collateralRewardRate;
+
+        uint256 totalRewardRate = collateralRewardRate + borrowRewardRate;
+
+        if (totalRewardRate == 0) revert ZeroRewardRate();
 
         // Ensure the provided reward amount is not more than the balance in the contract.
         // This keeps the reward rate in the right range, preventing overflows due to
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
         uint256 balance = IERC20(rewardToken).balanceOf(address(this));
-        if (rewardRate > balance / timeUntilNext) revert RewardRateTooHigh();
+        if (totalRewardRate > balance / timeUntilNext)
+            revert RewardRateTooHigh();
 
         lastUpdateTime = timestamp;
         periodFinish = timestamp + timeUntilNext;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
 import {SinkGauge} from "../../gauges/sink/SinkGauge.sol";
 import {ISinkGaugeFactory} from "../../interfaces/factories/sink/ISinkGaugeFactory.sol";

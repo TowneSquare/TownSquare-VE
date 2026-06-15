@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
 import {IGaugeFactory} from "../interfaces/factories/IGaugeFactory.sol";
 import {Gauge} from "../gauges/Gauge.sol";
@@ -10,9 +10,12 @@ contract GaugeFactory is IGaugeFactory {
 
     address public accountManager;
 
-    constructor(address _accountManager) {
+    address public loanManager;
+
+    constructor(address _accountManager, address _loanManager) {
         notifyAdmin = msg.sender;
         accountManager = _accountManager;
+        loanManager = _loanManager;
     }
 
     /// @inheritdoc IGaugeFactory
@@ -23,11 +26,18 @@ contract GaugeFactory is IGaugeFactory {
         emit SetNotifyAdmin(_admin);
     }
 
-    function setAccountManger(address _accountManger) external {
+    function setAccountManager(address _accountManager) external {
         if (notifyAdmin != msg.sender) revert NotAuthorized();
-        if (_accountManger == address(0)) revert ZeroAddress();
+        if (_accountManager == address(0)) revert ZeroAddress();
         accountManager = _accountManager;
-        emit SetAccountManager(_accountManger);
+        emit SetAccountManager(_accountManager);
+    }
+
+    function setLoanManager(address _loanManager) external {
+        if (notifyAdmin != msg.sender) revert NotAuthorized();
+        if (_loanManager == address(0)) revert ZeroAddress();
+        loanManager = _loanManager;
+        emit SetLoanManager(_loanManager);
     }
 
     function createGauge(
@@ -43,6 +53,7 @@ contract GaugeFactory is IGaugeFactory {
                 _rewardToken,
                 msg.sender,
                 accountManager,
+                loanManager,
                 isPool
             )
         );

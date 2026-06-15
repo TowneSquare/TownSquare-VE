@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {
+    IERC721Receiver
+} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IVeArtProxy} from "./interfaces/IVeArtProxy.sol";
 import {IVotingEscrow} from "./interfaces/IVotingEscrow.sol";
 import {IVoter} from "./interfaces/IVoter.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IReward} from "./interfaces/IReward.sol";
 import {IFactoryRegistry} from "./interfaces/factories/IFactoryRegistry.sol";
-import {IManagedRewardsFactory} from "./interfaces/factories/IManagedRewardsFactory.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {
+    IManagedRewardsFactory
+} from "./interfaces/factories/IManagedRewardsFactory.sol";
+import {
+    ERC2771Context
+} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {DelegationLogicLibrary} from "./libraries/DelegationLogicLibrary.sol";
 import {BalanceLogicLibrary} from "./libraries/BalanceLogicLibrary.sol";
 import {SafeCastLibrary} from "./libraries/SafeCastLibrary.sol";
@@ -303,9 +313,9 @@ contract VotingEscrow is
                              METADATA STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    string public constant name = "veNFT";
-    string public constant symbol = "veNFT";
-    string public constant version = "2.0.0";
+    string public constant name = "townNFT";
+    string public constant symbol = "townNFT";
+    string public constant version = "1.0.0";
     uint8 public constant decimals = 18;
 
     function setTeam(address _team) external {
@@ -534,7 +544,7 @@ contract VotingEscrow is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IVotingEscrow
-    mapping(address => mapping(uint256 => uint256)) public ownerToNFTokenIdList;
+    mapping(address => mapping(uint256 => uint256)) public ownerToNftokenIdList;
 
     /// @dev Mapping from NFT ID to index of owner
     mapping(uint256 => uint256) internal tokenToOwnerIndex;
@@ -545,7 +555,7 @@ contract VotingEscrow is
     function _addTokenToOwnerList(address _to, uint256 _tokenId) internal {
         uint256 currentCount = ownerToNFTokenCount[_to];
 
-        ownerToNFTokenIdList[_to][currentCount] = _tokenId;
+        ownerToNftokenIdList[_to][currentCount] = _tokenId;
         tokenToOwnerIndex[_tokenId] = currentCount;
     }
 
@@ -592,21 +602,21 @@ contract VotingEscrow is
 
         if (currentCount == currentIndex) {
             // update ownerToNFTokenIdList
-            ownerToNFTokenIdList[_from][currentCount] = 0;
+            ownerToNftokenIdList[_from][currentCount] = 0;
             // update tokenToOwnerIndex
             tokenToOwnerIndex[_tokenId] = 0;
         } else {
-            uint256 lastTokenId = ownerToNFTokenIdList[_from][currentCount];
+            uint256 lastTokenId = ownerToNftokenIdList[_from][currentCount];
 
             // Add
             // update ownerToNFTokenIdList
-            ownerToNFTokenIdList[_from][currentIndex] = lastTokenId;
+            ownerToNftokenIdList[_from][currentIndex] = lastTokenId;
             // update tokenToOwnerIndex
             tokenToOwnerIndex[lastTokenId] = currentIndex;
 
             // Delete
             // update ownerToNFTokenIdList
-            ownerToNFTokenIdList[_from][currentCount] = 0;
+            ownerToNftokenIdList[_from][currentCount] = 0;
             // update tokenToOwnerIndex
             tokenToOwnerIndex[_tokenId] = 0;
         }

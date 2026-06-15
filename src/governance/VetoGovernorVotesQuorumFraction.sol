@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // OpenZeppelin Contracts (last updated v4.8.0) (governance/extensions/GovernorVotesQuorumFraction.sol)
-pragma solidity >=0.8.19 <0.9.0;
+pragma solidity ^0.8.24;
 
 import {VetoGovernorVotes} from "./VetoGovernorVotes.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";

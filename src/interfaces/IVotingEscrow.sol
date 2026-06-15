@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
-import {IERC721, IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {
+    IERC721,
+    IERC721Metadata
+} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IVotes} from "../governance/IVotes.sol";
@@ -101,9 +104,24 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
         uint256 locktime,
         uint256 ts
     );
-    event Withdraw(address indexed provider, uint256 indexed tokenId, uint256 value, uint256 ts);
-    event LockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
-    event UnlockPermanent(address indexed _owner, uint256 indexed _tokenId, uint256 amount, uint256 _ts);
+    event Withdraw(
+        address indexed provider,
+        uint256 indexed tokenId,
+        uint256 value,
+        uint256 ts
+    );
+    event LockPermanent(
+        address indexed _owner,
+        uint256 indexed _tokenId,
+        uint256 amount,
+        uint256 _ts
+    );
+    event UnlockPermanent(
+        address indexed _owner,
+        uint256 indexed _tokenId,
+        uint256 amount,
+        uint256 _ts
+    );
     event Supply(uint256 prevSupply, uint256 supply);
     event Merge(
         address indexed _sender,
@@ -133,10 +151,18 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
         address _freeManagedReward
     );
     event DepositManaged(
-        address indexed _owner, uint256 indexed _tokenId, uint256 indexed _mTokenId, uint256 _weight, uint256 _ts
+        address indexed _owner,
+        uint256 indexed _tokenId,
+        uint256 indexed _mTokenId,
+        uint256 _weight,
+        uint256 _ts
     );
     event WithdrawManaged(
-        address indexed _owner, uint256 indexed _tokenId, uint256 indexed _mTokenId, uint256 _weight, uint256 _ts
+        address indexed _owner,
+        uint256 indexed _tokenId,
+        uint256 indexed _mTokenId,
+        uint256 _weight,
+        uint256 _ts
     );
     event SetAllowedManager(address indexed _allowedManager);
 
@@ -147,7 +173,7 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Address of FactoryRegistry.sol
     function factoryRegistry() external view returns (address);
 
-    /// @notice Address of token (VELO) used to create a veNFT
+    /// @notice Address of token (TOWN) used to create a veNFT
     function token() external view returns (address);
 
     /// @notice Address of RewardsDistributor.sol
@@ -156,7 +182,7 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Address of Voter.sol
     function voter() external view returns (address);
 
-    /// @notice Address of Velodrome Team multisig
+    /// @notice Address of Townsquare Team multisig
     function team() external view returns (address);
 
     /// @notice Address of art proxy used for on-chain art generation
@@ -177,10 +203,15 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     function escrowType(uint256 tokenId) external view returns (EscrowType);
 
     /// @dev Mapping of token id to managed id
-    function idToManaged(uint256 tokenId) external view returns (uint256 managedTokenId);
+    function idToManaged(
+        uint256 tokenId
+    ) external view returns (uint256 managedTokenId);
 
     /// @dev Mapping of user token id to managed token id to weight of token id
-    function weights(uint256 tokenId, uint256 managedTokenId) external view returns (uint256 weight);
+    function weights(
+        uint256 tokenId,
+        uint256 managedTokenId
+    ) external view returns (uint256 weight);
 
     /// @dev Mapping of managed id to deactivated state
     function deactivated(uint256 tokenId) external view returns (bool inactive);
@@ -201,7 +232,9 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Create managed NFT (a permanent lock) for use within ecosystem.
     /// @dev Throws if address already owns a managed NFT.
     /// @return _mTokenId managed token id.
-    function createManagedLockFor(address _to) external returns (uint256 _mTokenId);
+    function createManagedLockFor(
+        address _to
+    ) external returns (uint256 _mTokenId);
 
     /// @notice Delegates balance to managed nft
     ///         Note that NFTs deposited into a managed NFT will be re-locked
@@ -256,7 +289,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Mapping from owner address to mapping of index to tokenId
-    function ownerToNFTokenIdList(address _owner, uint256 _index) external view returns (uint256 _tokenId);
+    function ownerToNftokenIdList(
+        address _owner,
+        uint256 _index
+    ) external view returns (uint256 _tokenId);
 
     /// @inheritdoc IERC721
     function ownerOf(uint256 tokenId) external view returns (address owner);
@@ -269,15 +305,23 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IERC721
-    function getApproved(uint256 _tokenId) external view returns (address operator);
+    function getApproved(
+        uint256 _tokenId
+    ) external view returns (address operator);
 
     /// @inheritdoc IERC721
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
+    function isApprovedForAll(
+        address owner,
+        address operator
+    ) external view returns (bool);
 
     /// @notice Check whether spender is owner or an approved user for a given veNFT
     /// @param _spender .
     /// @param _tokenId .
-    function isApprovedOrOwner(address _spender, uint256 _tokenId) external returns (bool);
+    function isApprovedOrOwner(
+        address _spender,
+        uint256 _tokenId
+    ) external returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                               ERC721 LOGIC
@@ -293,17 +337,28 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     function transferFrom(address from, address to, uint256 tokenId) external;
 
     /// @inheritdoc IERC721
-    function safeTransferFrom(address from, address to, uint256 tokenId) external;
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) external;
 
     /// @inheritdoc IERC721
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes calldata data
+    ) external;
 
     /*//////////////////////////////////////////////////////////////
                               ERC165 LOGIC
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool);
+    function supportsInterface(
+        bytes4 _interfaceID
+    ) external view returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                              ESCROW STORAGE
@@ -318,7 +373,9 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Aggregate permanent locked balances
     function permanentLockBalance() external view returns (uint256);
 
-    function userPointEpoch(uint256 _tokenId) external view returns (uint256 _epoch);
+    function userPointEpoch(
+        uint256 _tokenId
+    ) external view returns (uint256 _epoch);
 
     /// @notice time -> signed slope change
     function slopeChanges(uint256 _timestamp) external view returns (int128);
@@ -327,15 +384,22 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     function canSplit(address _account) external view returns (bool);
 
     /// @notice Global point history at a given index
-    function pointHistory(uint256 _loc) external view returns (GlobalPoint memory);
+    function pointHistory(
+        uint256 _loc
+    ) external view returns (GlobalPoint memory);
 
     /// @notice Get the LockedBalance (amount, end) of a _tokenId
     /// @param _tokenId .
     /// @return LockedBalance of _tokenId
-    function locked(uint256 _tokenId) external view returns (LockedBalance memory);
+    function locked(
+        uint256 _tokenId
+    ) external view returns (LockedBalance memory);
 
     /// @notice User -> UserPoint[userEpoch]
-    function userPointHistory(uint256 _tokenId, uint256 _loc) external view returns (UserPoint memory);
+    function userPointHistory(
+        uint256 _tokenId,
+        uint256 _loc
+    ) external view returns (UserPoint memory);
 
     /*//////////////////////////////////////////////////////////////
                               ESCROW LOGIC
@@ -355,7 +419,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @param _value Amount to deposit
     /// @param _lockDuration Number of seconds to lock tokens for (rounded down to nearest week)
     /// @return TokenId of created veNFT
-    function createLock(uint256 _value, uint256 _lockDuration) external returns (uint256);
+    function createLock(
+        uint256 _value,
+        uint256 _lockDuration
+    ) external returns (uint256);
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
@@ -364,7 +431,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @notice Extend the unlock time for `_tokenId`
     ///         Cannot extend lock time of permanent locks
     /// @param _lockDuration New number of seconds until tokens unlock
-    function increaseUnlockTime(uint256 _tokenId, uint256 _lockDuration) external;
+    function increaseUnlockTime(
+        uint256 _tokenId,
+        uint256 _lockDuration
+    ) external;
 
     /// @notice Withdraw all tokens for `_tokenId`
     /// @dev Only possible if the lock is both expired and not permanent
@@ -393,7 +463,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @param _amount Amount to split from veNFT.
     /// @return _tokenId1 Return tokenId of veNFT with oldLocked.amount - `_amount`.
     /// @return _tokenId2 Return tokenId of veNFT with `_amount`.
-    function split(uint256 _from, uint256 _amount) external returns (uint256 _tokenId1, uint256 _tokenId2);
+    function split(
+        uint256 _from,
+        uint256 _amount
+    ) external returns (uint256 _tokenId1, uint256 _tokenId2);
 
     /// @notice Toggle split for a specific address.
     /// @dev Toggle split for address(0) to enable or disable for all.
@@ -428,7 +501,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @param _tokenId .
     /// @param _t Timestamp to query voting power
     /// @return Voting power
-    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256);
+    function balanceOfNFTAt(
+        uint256 _tokenId,
+        uint256 _t
+    ) external view returns (uint256);
 
     /// @notice Calculate total voting power at current timestamp
     /// @return Total voting power at current timestamp
@@ -450,7 +526,10 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
 
     /// @notice Set the global state voter and distributor
     /// @dev This is only called once, at setup
-    function setVoterAndDistributor(address _voter, address _distributor) external;
+    function setVoterAndDistributor(
+        address _voter,
+        address _distributor
+    ) external;
 
     /// @notice Set `voted` for _tokenId to true or false
     /// @dev Only callable by voter
@@ -475,13 +554,22 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @param tokenId .
     /// @param index .
     /// @return Checkpoint
-    function checkpoints(uint256 tokenId, uint48 index) external view returns (Checkpoint memory);
+    function checkpoints(
+        uint256 tokenId,
+        uint48 index
+    ) external view returns (Checkpoint memory);
 
     /// @inheritdoc IVotes
-    function getPastVotes(address account, uint256 tokenId, uint256 timestamp) external view returns (uint256);
+    function getPastVotes(
+        address account,
+        uint256 tokenId,
+        uint256 timestamp
+    ) external view returns (uint256);
 
     /// @inheritdoc IVotes
-    function getPastTotalSupply(uint256 timestamp) external view returns (uint256);
+    function getPastTotalSupply(
+        uint256 timestamp
+    ) external view returns (uint256);
 
     /*///////////////////////////////////////////////////////////////
                              DAO VOTING LOGIC

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 interface IGauge {
     error NotAlive();
@@ -82,7 +82,11 @@ interface IGauge {
     /// @notice Retrieve rewards for an address.
     /// @dev Throws if not called by same address or voter.
     /// @param _account .
-    function getReward(address _account) external;
+    function getReward(
+        address _account,
+        bytes32 accountId,
+        uint16 chainId
+    ) external;
 
     /// @notice Deposit LP tokens into gauge for msg.sender
     /// @param _amount .
@@ -95,7 +99,7 @@ interface IGauge {
 
     /// @notice Withdraw LP tokens for user
     /// @param _amount .
-    function withdraw(uint256 _amount) external;
+    //function withdraw(uint256 _amount) external;
 
     /// @dev Notifies gauge of gauge rewards. Assumes gauge reward tokens is 18 decimals.
     ///      If not 18 decimals, rewardRate may have rounding issues.
