@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IGovernorProposalWindow} from "./IGovernorProposalWindow.sol";
 import {GovernorSimple} from "./GovernorSimple.sol";
 
-import {VelodromeTimeLibrary} from "../libraries/VelodromeTimeLibrary.sol";
+import {TownsquareTimeLibrary} from "../libraries/TownsquareTimeLibrary.sol";
 
 abstract contract GovernorProposalWindow is GovernorSimple, IGovernorProposalWindow {
     /// @inheritdoc IGovernorProposalWindow
@@ -23,7 +23,7 @@ abstract contract GovernorProposalWindow is GovernorSimple, IGovernorProposalWin
         string memory _description
     ) public virtual override returns (uint256) {
         /// @dev Proposal creation is permissionless after `epochStart + proposalWindow`
-        if (block.timestamp < VelodromeTimeLibrary.epochStart({timestamp: block.timestamp}) + proposalWindow) {
+        if (block.timestamp < TownsquareTimeLibrary.epochStart({timestamp: block.timestamp}) + proposalWindow) {
             _checkOwner();
         }
         return super.propose({

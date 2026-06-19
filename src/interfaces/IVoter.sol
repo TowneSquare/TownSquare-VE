@@ -109,9 +109,6 @@ interface IVoter {
     /// @dev Gauge => Pool
     function poolForGauge(address gauge) external view returns (address);
 
-    /// @dev Gauge => Fees Voting Reward
-    function gaugeToFees(address gauge) external view returns (address);
-
     /// @dev Gauge => Incentives Voting Reward
     function gaugeToIncentive(address gauge) external view returns (address);
 
@@ -206,7 +203,12 @@ interface IVoter {
 
     /// @notice Claim emissions from gauges.
     /// @param _gauges Array of gauges to collect emissions from.
-    function claimRewards(address[] memory _gauges) external;
+    function claimRewards(
+        address[] memory _gauges,
+        bytes32 _accountId,
+        uint16 _chainId,
+        bytes32[] memory _accountLoans
+    ) external;
 
     /// @notice Claim incentives for a given NFT.
     /// @dev Utility to help batch incentive claims.

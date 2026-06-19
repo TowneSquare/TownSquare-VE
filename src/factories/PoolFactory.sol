@@ -31,8 +31,10 @@ contract PoolFactory is IPoolFactory {
     address[] internal _allPools;
     /// @dev simplified check if its a pool, given that `stable` flag might not be available in peripherals
     mapping(address => bool) private _isPool;
-    /// @inheritdoc IPoolFactory
-   // mapping(address => uint256) public customFee; // override for custom fees
+
+    // mapping(address => uint256) public customFee; // override for custom fees
+
+    error PoolAlreadyExist();
 
     constructor(address _implementation) {
         implementation = _implementation;
@@ -74,7 +76,10 @@ contract PoolFactory is IPoolFactory {
     // }
 
     /// @inheritdoc IPoolFactory
-    function getPool(address token, uint8 poolId) external view returns (address) {
+    function getPool(
+        address token,
+        uint8 poolId
+    ) external view returns (address) {
         return _getPool[token][poolId];
     }
 
@@ -157,10 +162,14 @@ contract PoolFactory is IPoolFactory {
     // }
 
     /// @inheritdoc IPoolFactory
-    function createPool(address pool, address token, uint8 poolId) public returns (address) {
-        if(token == address(0)) revert ZeroAddress()
-        if(pool == address(0)) revert ZeroAddress()
-        if(_getPool[token][poolId] != address(0)) revert PoolAlreadyExist();
+    function createPool(
+        address pool,
+        address token,
+        uint8 poolId
+    ) public returns (address) {
+        if (token == address(0)) revert ZeroAddress();
+        if (pool == address(0)) revert ZeroAddress();
+        if (_getPool[token][poolId] != address(0)) revert PoolAlreadyExist();
         _getPool[token][poolId] = pool;
         _allPools.push(pool);
         _isPool[pool] = true;

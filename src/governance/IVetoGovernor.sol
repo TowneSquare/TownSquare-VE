@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
-import {IVotingEscrow} from "contracts/interfaces/IVotingEscrow.sol";
+import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 
 /**
  * @dev Taken from OpenZeppelin's IGovernor.

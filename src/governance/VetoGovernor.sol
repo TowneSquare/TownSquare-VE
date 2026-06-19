@@ -13,7 +13,7 @@ import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEnde
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IVetoGovernor} from "./IVetoGovernor.sol";
-import {IVotingEscrow} from "contracts/interfaces/IVotingEscrow.sol";
+import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 
 /**
  * @dev Modified lightly from OpenZeppelin's Governor contract to support vetoing.

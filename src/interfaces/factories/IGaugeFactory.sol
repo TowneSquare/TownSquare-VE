@@ -16,7 +16,7 @@ interface IGaugeFactory {
     /// @param _admin New administrator that will be able to call `notifyRewardWithoutClaim` on gauges.
     function setNotifyAdmin(address _admin) external;
 
-    function setAccountManger(address _accountManager) external;
+    function setAccountManager(address _accountManager) external;
 
     function createGauge(
         address _forwarder,

@@ -32,8 +32,14 @@ interface IPool {
         uint256 averageInterestRate; // 18 d.p.
     }
     function getDepositData() external view returns (DepositData memory);
-    function getVariableBorrowData() external view returns (VariableBorrowData memory)
-    function getStableBorrowData() external view returns (StableBorrowData memory)
+    function getVariableBorrowData()
+        external
+        view
+        returns (VariableBorrowData memory);
+    function getStableBorrowData()
+        external
+        view
+        returns (StableBorrowData memory);
 
     /// @notice Called on pool creation by PoolFactory
     /// @param _token0 Address of token0
@@ -45,5 +51,5 @@ interface IPool {
         bool _stable
     ) external;
 
-    function getPoolId() external view returns (uint8)
+    function getPoolId() external view returns (uint8);
 }

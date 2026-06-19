@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 
 import {GovernorSimple} from "./GovernorSimple.sol";
 import {IGovernorCommentable} from "./IGovernorCommentable.sol";
-import {IVotingEscrow} from "contracts/interfaces/IVotingEscrow.sol";
+import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 
 abstract contract GovernorCommentable is GovernorSimple, IGovernorCommentable {
     /// @inheritdoc IGovernorCommentable

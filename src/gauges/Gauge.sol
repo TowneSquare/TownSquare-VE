@@ -67,6 +67,8 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
     uint256 public totalCollateral;
     /// @inheritdoc IGauge
     uint256 public totalBorrow;
+
+    uint256 public totalRewardRate;
     /// @inheritdoc IGauge
     mapping(address => uint256) public balanceOf;
     /// @inheritdoc IGauge
@@ -96,7 +98,9 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
         address _loanManager,
         bool _isPool
     ) ERC2771Context(_forwarder) {
+        stakingToken = _pool;
         rewardToken = _rewardToken;
+        feesVotingReward = address(0);
         voter = _voter;
         accountManager = _accountManager;
         loanManager = _loanManager;
@@ -104,7 +108,6 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
         gaugeFactory = msg.sender;
     }
 
-    /// @inheritdoc IGauge
     // function rewardPerToken() public view returns (uint256) {
     //     if (totalSupply == 0) {
     //         return rewardPerTokenStored;
@@ -218,7 +221,7 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
 
             for (uint256 i = 0; i < colPools.length; i++) {
                 if (colPools[i] == poolId) {
-                    collateralBalance += collaterals[i].balance; // Use fToken balance
+                    collateralBalance += collateral[i].balance; // Use fToken balance
                     break;
                 }
             }
@@ -284,7 +287,7 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
     function left() external view returns (uint256) {
         if (block.timestamp >= periodFinish) return 0;
         uint256 _remaining = periodFinish - block.timestamp;
-        return _remaining * rewardRate;
+        return _remaining * totalRewardRate;
     }
 
     /// @inheritdoc IGauge
@@ -347,7 +350,7 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
             TownsquareTimeLibrary.epochStart(timestamp)
         ] = collateralRewardRate;
 
-        uint256 totalRewardRate = collateralRewardRate + borrowRewardRate;
+        totalRewardRate = collateralRewardRate + borrowRewardRate;
 
         if (totalRewardRate == 0) revert ZeroRewardRate();
 
