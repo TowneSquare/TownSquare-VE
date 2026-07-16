@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface ILoanManager {
+interface ILoanController {
     struct UserLoanCollateral {
         uint256 balance; // denominated in ts token
         uint256 rewardIndex;
@@ -29,4 +29,8 @@ interface ILoanManager {
             UserLoanCollateral[] memory,
             UserLoanBorrow[] memory
         );
+
+    function isPoolAdded(uint8 poolId) external view returns (bool);
+
+    function getPool(uint8 poolId) external view returns (address);
 }

@@ -14,6 +14,7 @@ interface IVoter {
     error MaximumVotingNumberTooLow();
     error NonZeroVotes();
     error NotAPool();
+    error NotAGauge();
     error NotApprovedOrOwner();
     error NotGovernor();
     error NotEmergencyCouncil();
@@ -205,9 +206,8 @@ interface IVoter {
     /// @param _gauges Array of gauges to collect emissions from.
     function claimRewards(
         address[] memory _gauges,
-        bytes32 _accountId,
-        uint16 _chainId,
-        bytes32[] memory _accountLoans
+        uint256[] memory _rewards,
+        bytes32[][] memory _proofs
     ) external;
 
     /// @notice Claim incentives for a given NFT.
@@ -270,11 +270,22 @@ interface IVoter {
     /// @notice Create a new gauge (unpermissioned).
     /// @dev Governor can create a new gauge for a pool with any address.
     /// @param _poolFactory .
-    /// @param _pool .
+    /// @param _poolId .
     function createGauge(
         address _poolFactory,
-        address _pool
+        uint8 _poolId
     ) external returns (address);
+
+    /// @notice Sets the collateral/borrow reward split for a gauge.
+    /// @dev Only callable by governor. _collateralBps + _borrowBps must equal 10000.
+    /// @param _gauge Address of the gauge to update.
+    /// @param _collateralBps Basis points for collateral rewards.
+    /// @param _borrowBps Basis points for borrow rewards.
+    function setGaugeRewardSplit(
+        address _gauge,
+        uint256 _collateralBps,
+        uint256 _borrowBps
+    ) external;
 
     /// @notice Kills a gauge. The gauge will not receive any new emissions and cannot be deposited into.
     ///         Can still withdraw from gauge.

@@ -398,7 +398,7 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
     /// @inheritdoc IVoter
     function createGauge(
         address _poolFactory,
-        address _pool
+        uint8 _poolId
     ) external nonReentrant returns (address) {
         address sender = _msgSender();
         if (
@@ -406,40 +406,27 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
                 _poolFactory
             )
         ) revert FactoryPathNotApproved();
+
+        address _pool = IPoolFactory(_poolFactory).getPool(_poolId);
+
         if (gauges[_pool] != address(0)) revert GaugeExists();
 
         (address votingRewardsFactory, address gaugeFactory) = IFactoryRegistry(
             factoryRegistry
         ).factoriesToPoolFactory(_poolFactory);
-        address[] memory rewards = new address[](2);
-        bool isPool = IPoolFactory(_poolFactory).isPool(_pool);
-        // {
-        //     // stack too deep
-        //     address token0;
-        //     if (isPool) {
-        //         token0 = IPool(_pool).token0();
-        //         token1 = IPool(_pool).token1();
-        //         rewards[0] = token0;
-        //         rewards[1] = token1;
-        //     }
+        address[] memory rewards = new address[](1);
 
-        //     if (sender != governor) {
-        //         if (!isPool) revert NotAPool();
-        //         if (!isWhitelistedToken[token0] || !isWhitelistedToken[token1])
-        //             revert NotWhitelistedToken();
-        //     }
-        // }
+        bool isPool = IPoolFactory(_poolFactory).isPool(_poolId);
+
+        if (sender != governor) {
+            if (!isPool) revert NotAPool();
+        }
 
         address _incentiveVotingReward = IVotingRewardsFactory(
             votingRewardsFactory
-        ).createRewards(forwarder, rewards);
+        ).createRewards(rewards);
 
-        address _gauge = IGaugeFactory(gaugeFactory).createGauge(
-            forwarder,
-            _pool,
-            rewardToken,
-            isPool
-        );
+        address _gauge = IGaugeFactory(gaugeFactory).createGauge(rewardToken);
 
         //gaugeToFees[_gauge] = _feeVotingReward;
         gaugeToIncentive[_gauge] = _incentiveVotingReward;
@@ -456,11 +443,21 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
             gaugeFactory,
             _pool,
             _incentiveVotingReward,
-            //_feeVotingReward,
             _gauge,
             sender
         );
         return _gauge;
+    }
+
+    /// @inheritdoc IVoter
+    function setGaugeRewardSplit(
+        address _gauge,
+        uint256 _collateralBps,
+        uint256 _borrowBps
+    ) external {
+        if (_msgSender() != governor) revert NotGovernor();
+        if (!isGauge[_gauge]) revert NotAGauge();
+        IGauge(_gauge).setRewardSplit(_collateralBps, _borrowBps);
     }
 
     /// @inheritdoc IVoter
@@ -546,18 +543,12 @@ contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
     /// @inheritdoc IVoter
     function claimRewards(
         address[] memory _gauges,
-        bytes32 _accountId,
-        uint16 _chainId,
-        bytes32[] memory _accountLoans
+        uint256[] memory _rewards,
+        bytes32[][] memory _proofs
     ) external {
         uint256 _length = _gauges.length;
         for (uint256 i = 0; i < _length; i++) {
-            IGauge(_gauges[i]).getReward(
-                _msgSender(),
-                _accountId,
-                _chainId,
-                _accountLoans
-            );
+            IGauge(_gauges[i]).getReward(_rewards[i], _proofs[i]);
         }
     }
 

@@ -8,14 +8,8 @@ contract GaugeFactory is IGaugeFactory {
     /// @inheritdoc IGaugeFactory
     address public notifyAdmin;
 
-    address public accountManager;
-
-    address public loanManager;
-
-    constructor(address _accountManager, address _loanManager) {
+    constructor() {
         notifyAdmin = msg.sender;
-        accountManager = _accountManager;
-        loanManager = _loanManager;
     }
 
     /// @inheritdoc IGaugeFactory
@@ -26,36 +20,9 @@ contract GaugeFactory is IGaugeFactory {
         emit SetNotifyAdmin(_admin);
     }
 
-    function setAccountManager(address _accountManager) external {
-        if (notifyAdmin != msg.sender) revert NotAuthorized();
-        if (_accountManager == address(0)) revert ZeroAddress();
-        accountManager = _accountManager;
-        emit SetAccountManager(_accountManager);
-    }
-
-    function setLoanManager(address _loanManager) external {
-        if (notifyAdmin != msg.sender) revert NotAuthorized();
-        if (_loanManager == address(0)) revert ZeroAddress();
-        loanManager = _loanManager;
-        emit SetLoanManager(_loanManager);
-    }
-
     function createGauge(
-        address _forwarder,
-        address _pool,
-        address _rewardToken,
-        bool isPool
+        address _rewardToken
     ) external returns (address gauge) {
-        gauge = address(
-            new Gauge(
-                _forwarder,
-                _pool,
-                _rewardToken,
-                msg.sender,
-                accountManager,
-                loanManager,
-                isPool
-            )
-        );
+        gauge = address(new Gauge(_rewardToken, msg.sender));
     }
 }

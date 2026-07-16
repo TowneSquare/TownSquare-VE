@@ -11,7 +11,7 @@ contract FreeManagedReward is ManagedReward {
     constructor(
         address _forwarder,
         address _voter
-    ) ManagedReward(_forwarder, _voter) {}
+    ) ManagedReward(_voter) {}
 
     /// @inheritdoc ManagedReward
     function getReward(

@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {IReward} from "../interfaces/IReward.sol";
-import {IGauge} from "../interfaces/IGauge.sol";
-import {IPool} from "../interfaces/IPool.sol";
-import {IVoter} from "../interfaces/IVoter.sol";
-import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
     SafeERC20
@@ -18,279 +12,153 @@ import {
     ReentrancyGuardTransient
 } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TownsquareTimeLibrary} from "../libraries/TownsquareTimeLibrary.sol";
-import {Utils} from "../libraries/Utils.sol";
-import {IGaugeFactory} from "../interfaces/factories/IGaugeFactory.sol";
-import {IAccountManager} from "../interfaces/IAccountManager.sol";
-import {Messages} from "../libraries/Message.sol";
-import {ILoanManager} from "../interfaces/ILoanManager.sol";
 
-/// @title Velodrome V2 Gauge
-/// @author veldorome.finance, @figs999, @pegahcarter
-/// @notice Gauge contract for distribution of emissions by address
-contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
+import {IGaugeFactory} from "../interfaces/factories/IGaugeFactory.sol";
+
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    MerkleProof
+} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
+contract Gauge is Context, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
 
-    /// @inheritdoc IGauge
-    address public immutable stakingToken;
-    /// @inheritdoc IGauge
+    bytes32 public root;
+
+    address public immutable voter;
+
+    address public immutable gaugeFactory;
+
     address public immutable rewardToken;
 
-    address public immutable accountManager;
-
-    address public immutable loanManager;
-    /// @inheritdoc IGauge
-    address public immutable feesVotingReward;
-    /// @inheritdoc IGauge
-    address public immutable voter;
-    /// @inheritdoc IGauge
-    address public immutable gaugeFactory;
-    /// @inheritdoc IGauge
-    bool public immutable isPool;
-
-    uint256 internal constant DURATION = 7 days; // rewards are released over 7 days
-
-    uint256 internal constant PRECISION = 10 ** 18;
-
-    /// @inheritdoc IGauge
     uint256 public periodFinish;
-    /// @inheritdoc IGauge
+
     uint256 public collateralRewardRate;
 
     uint256 public borrowRewardRate;
-    /// @inheritdoc IGauge
+
+    uint256 public collateralBps = 4000;
+
+    uint256 public borrowBps = 6000;
+
     uint256 public lastUpdateTime;
-    /// @inheritdoc IGauge
+
     uint256 public collateralRewardPerTokenStored;
 
     uint256 public borrowRewardPerTokenStored;
-    /// @inheritdoc IGauge
-    uint256 public totalCollateral;
-    /// @inheritdoc IGauge
-    uint256 public totalBorrow;
 
     uint256 public totalRewardRate;
-    /// @inheritdoc IGauge
-    mapping(address => uint256) public balanceOf;
-    /// @inheritdoc IGauge
-    mapping(address => uint256) public userCollateralRewardPerTokenPaid;
-    /// @inheritdoc IGauge
-    mapping(address => uint256) public userBorrowRewardPerTokenPaid;
-    /// @inheritdoc IGauge
-    mapping(address => uint256) public collateralRewards;
-    /// @inheritdoc IGauge
-    mapping(address => uint256) public borrowRewards;
-    /// @inheritdoc IGauge
-    mapping(uint256 => uint256) public collateralRewardRateByEpoch;
-    /// @inheritdoc IGauge
+
+    uint256 public totalCollateral;
+
+    uint256 internal constant PRECISION = 10 ** 18;
+
+    // mapping(address => uint256) public collateralRewards;
+
+    // mapping(address => uint256) public borrowRewards;
+
     mapping(uint256 => uint256) public borrowRewardRateByEpoch;
 
-    /// @inheritdoc IGauge
-    uint256 public fees0;
-    /// @inheritdoc IGauge
-    uint256 public fees1;
+    mapping(uint256 => uint256) public collateralRewardRateByEpoch;
+
+    error NotAlive();
+    error NotAuthorized();
+    error NotVoter();
+    error NotTeam();
+    error RewardRateTooHigh();
+    error ZeroAmount();
+    error ZeroRewardRate();
+    error MerkleRootNotSet();
+    error InvalidProof();
+    error InsufficientContractBalance();
+    error ZeroRoot();
+    error InvalidSplit();
+
+    event NotifyReward(address indexed from, uint256 amount);
+    event MerkleRootUpdated(bytes32 root);
+    event Claimed(address indexed sender, uint256 amount);
+    event RewardSplitUpdated(uint256 collateralBps, uint256 borrowBps);
 
     constructor(
-        address _forwarder,
-        address _pool,
         address _rewardToken, /// TOWN
-        address _voter,
-        address _accountManager,
-        address _loanManager,
-        bool _isPool
-    ) ERC2771Context(_forwarder) {
-        stakingToken = _pool;
+        address _voter
+    ) {
         rewardToken = _rewardToken;
-        feesVotingReward = address(0);
         voter = _voter;
-        accountManager = _accountManager;
-        loanManager = _loanManager;
-        isPool = _isPool;
         gaugeFactory = msg.sender;
     }
 
-    // function rewardPerToken() public view returns (uint256) {
-    //     if (totalSupply == 0) {
-    //         return rewardPerTokenStored;
-    //     }
-    //     return
-    //         rewardPerTokenStored +
-    //         ((lastTimeRewardApplicable() - lastUpdateTime) *
-    //             rewardRate *
-    //             PRECISION) /
-    //         totalSupply;
-    // }
-
-    function collateralRewardPerToken() public view returns (uint256) {
-        if (totalCollateral == 0) {
-            return collateralRewardPerTokenStored;
-        }
-
-        return
-            collateralRewardPerTokenStored +
-            ((lastTimeRewardApplicable() - lastUpdateTime) *
-                collateralRewardRate *
-                PRECISION) /
-            totalCollateral;
+    function setRewardSplit(uint256 _collateralBps, uint256 _borrowBps) external {
+        if (_msgSender() != voter) revert NotVoter();
+        if (_collateralBps + _borrowBps != 10000) revert InvalidSplit();
+        collateralBps = _collateralBps;
+        borrowBps = _borrowBps;
+        emit RewardSplitUpdated(_collateralBps, _borrowBps);
     }
 
-    function borrowRewardPerToken() public view returns (uint256) {
-        if (totalBorrow == 0) {
-            return borrowRewardPerTokenStored;
-        }
-        return
-            borrowRewardPerTokenStored +
-            ((lastTimeRewardApplicable() - lastUpdateTime) *
-                borrowRewardRate *
-                PRECISION) /
-            totalBorrow;
-    }
-
-    /// @inheritdoc IGauge
-    function lastTimeRewardApplicable() public view returns (uint256) {
-        return Math.min(block.timestamp, periodFinish);
-    }
-
-    /// @inheritdoc IGauge
-    function getReward(
-        address _account,
-        bytes32 _accountId,
-        uint16 _chainId,
-        bytes32[] memory _accountLoans
-    ) external nonReentrant {
+    function setMerkleRoot(bytes32 _root) external {
         address sender = _msgSender();
-        bool isRegistered = IAccountManager(accountManager)
-            .isAddressRegisteredToAccount(
-                _accountId,
-                _chainId,
-                Messages.convertEVMAddressToGenericAddress(_account)
-            );
-        if (sender != _account && sender != voter && !isRegistered)
-            revert NotAuthorized();
-
-        _updateRewards(_account, _accountLoans, _chainId);
-
-        uint256 reward;
-
-        if (collateralRewards[_account] > 0) {
-            reward += collateralRewards[_account];
-            collateralRewards[_account] = 0;
-        }
-
-        if (borrowRewards[_account] > 0) {
-            reward += borrowRewards[_account];
-            borrowRewards[_account] = 0;
-        }
-
-        if (reward > 0) {
-            //rewards[_account] = 0;
-            IERC20(rewardToken).safeTransfer(_account, reward);
-            emit ClaimRewards(_account, reward);
-        }
+        if (sender != voter) revert NotVoter();
+        if (_root == bytes32(0)) revert ZeroRoot();
+        root = _root;
+        emit MerkleRootUpdated(_root);
     }
 
-    /// @inheritdoc IGauge
-    function earned(
-        address _account,
-        bytes32[] memory _accountLoans,
-        uint16 _chainId
-    ) public view returns (uint256, uint256) {
-        bytes32 userAccountId = IAccountManager(accountManager)
-            .getAccountIdOfAddressOnChain(
-                Messages.convertEVMAddressToGenericAddress(_account),
-                _chainId
-            );
-        uint256 collateralBalance;
-        uint256 borrowBalance;
-        uint256 loanCnt = _accountLoans.length;
-        uint256 poolId = IPool(stakingToken).getPoolId();
+    function getReward(
+        uint256 reward,
+        bytes32[] calldata proof
+    ) external nonReentrant {
+        if (root == bytes32(0)) revert MerkleRootNotSet();
 
-        for (uint256 i = 0; i < loanCnt; i++) {
-            (
-                bytes32 accountId,
-                uint16 loanTypeId,
-                uint8[] memory colPools,
-                uint8[] memory borPools,
-                ILoanManager.UserLoanCollateral[] memory collateral,
-                ILoanManager.UserLoanBorrow[] memory borrow
-            ) = ILoanManager(loanManager).getUserLoan(_accountLoans[i]); // need to add loanManger address
-            /// check user is the owner of the loans
-
-            if (userAccountId != accountId) {
-                revert NotAuthorized();
-            }
-
-            for (uint256 i = 0; i < colPools.length; i++) {
-                if (colPools[i] == poolId) {
-                    collateralBalance += collateral[i].balance; // Use fToken balance
-                    break;
-                }
-            }
-
-            for (uint256 i = 0; i < borPools.length; i++) {
-                if (borPools[i] == poolId) {
-                    borrowBalance += borrow[i].amount;
-                    break;
-                }
-            }
-        }
-
-        uint256 depositInterestIndexAtT = IPool(stakingToken)
-            .getDepositData()
-            .interestIndex;
-
-        // convert fToken to underlying amount
-        uint256 collateralReward = (Utils.toUnderlingAmount(
-            collateralBalance,
-            depositInterestIndexAtT
-        ) *
-            (collateralRewardPerToken() -
-                userCollateralRewardPerTokenPaid[_account])) /
-            PRECISION +
-            collateralRewards[_account];
-
-        uint256 borrowReward = (borrowBalance *
-            (borrowRewardPerToken() - userBorrowRewardPerTokenPaid[_account])) /
-            PRECISION +
-            borrowRewards[_account];
-
-        return (collateralReward, borrowReward);
-    }
-
-    function _updateRewards(
-        address _account,
-        bytes32[] memory accountLoans,
-        uint16 chainId
-    ) internal {
-        totalCollateral = IPool(stakingToken).getDepositData().totalAmount;
-        totalBorrow =
-            IPool(stakingToken).getStableBorrowData().totalAmount +
-            IPool(stakingToken).getVariableBorrowData().totalAmount;
-        collateralRewardPerTokenStored = collateralRewardPerToken();
-        borrowRewardPerTokenStored = borrowRewardPerToken();
-        lastUpdateTime = lastTimeRewardApplicable();
-        (uint256 collateralReward, uint256 borrowReward) = earned(
-            _account,
-            accountLoans,
-            chainId
+        bytes32 leaf = keccak256(
+            bytes.concat(keccak256(abi.encode(msg.sender, reward)))
         );
-        collateralRewards[_account] = collateralReward;
-        borrowRewards[_account] = borrowReward;
-        //userRewardPerTokenPaid[_account] = rewardPerTokenStored;
-        userCollateralRewardPerTokenPaid[
-            _account
-        ] = collateralRewardPerTokenStored;
+        if (!MerkleProof.verify(proof, root, leaf)) revert InvalidProof();
 
-        userBorrowRewardPerTokenPaid[_account] = borrowRewardPerTokenStored;
+        if (reward == 0) revert ZeroAmount();
+        if (IERC20(rewardToken).balanceOf(address(this)) < reward)
+            revert InsufficientContractBalance();
+
+        IERC20(rewardToken).safeTransfer(msg.sender, reward);
+
+        emit Claimed(msg.sender, reward);
     }
 
-    /// @inheritdoc IGauge
     function left() external view returns (uint256) {
         if (block.timestamp >= periodFinish) return 0;
         uint256 _remaining = periodFinish - block.timestamp;
         return _remaining * totalRewardRate;
     }
 
-    /// @inheritdoc IGauge
+    // function setTotalCollateral(uint256 _totalCollateral) external {
+    //     totalCollateral = _totalCollateral;
+    // }
+
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return Math.min(block.timestamp, periodFinish);
+    }
+
+    // function collateralRewardPerToken() public view returns (uint256) {
+    //     if (totalCollateral == 0) {
+    //         return collateralRewardPerTokenStored;
+    //     }
+
+    //     return
+    //         collateralRewardPerTokenStored +
+    //         ((lastTimeRewardApplicable() - lastUpdateTime) *
+    //             collateralRewardRate *
+    //             PRECISION) /
+    //         totalCollateral;
+    // }
+
+    // function updateCollateralRewardPerTokenStored() external {
+    //     collateralRewardPerTokenStored = collateralRewardPerToken();
+    // }
+
     function notifyRewardAmount(uint256 _amount) external nonReentrant {
         address sender = _msgSender();
         if (sender != voter) revert NotVoter();
@@ -299,7 +167,6 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
         _notifyRewardAmount(sender, _amount);
     }
 
-    /// @inheritdoc IGauge
     function notifyRewardWithoutClaim(uint256 _amount) external nonReentrant {
         address sender = _msgSender();
         if (sender != IGaugeFactory(gaugeFactory).notifyAdmin())
@@ -314,8 +181,8 @@ contract Gauge is IGauge, ERC2771Context, ReentrancyGuardTransient {
         uint256 timeUntilNext = TownsquareTimeLibrary.epochNext(timestamp) -
             timestamp;
 
-        uint256 collateralAmount = (_amount * 4000) / 10000;
-        uint256 borrowAmount = (_amount * 6000) / 10000;
+        uint256 collateralAmount = (_amount * collateralBps) / 10000;
+        uint256 borrowAmount = (_amount * borrowBps) / 10000;
 
         if (timestamp >= periodFinish) {
             IERC20(rewardToken).safeTransferFrom(

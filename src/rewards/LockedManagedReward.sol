@@ -10,7 +10,7 @@ contract LockedManagedReward is ManagedReward {
     constructor(
         address _forwarder,
         address _voter
-    ) ManagedReward(_forwarder, _voter) {}
+    ) ManagedReward(_voter) {}
 
     /// @inheritdoc ManagedReward
     /// @dev Called by VotingEscrow to retrieve locked rewards

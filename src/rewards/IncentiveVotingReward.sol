@@ -7,10 +7,9 @@ import {VotingReward} from "./VotingReward.sol";
 /// @notice Incentives pay out rewards for a given pool based on the votes that were received from the user (goes hand in hand with Voter.vote())
 contract IncentiveVotingReward is VotingReward {
     constructor(
-        address _forwarder,
         address _voter,
         address[] memory _rewards
-    ) VotingReward(_forwarder, _voter, _rewards) {}
+    ) VotingReward(_voter, _rewards) {}
 
     /// @inheritdoc VotingReward
     function notifyRewardAmount(

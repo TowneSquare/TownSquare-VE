@@ -4,25 +4,30 @@ pragma solidity ^0.8.24;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {IVoter} from "../interfaces/IVoter.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TownsquareTimeLibrary} from "../libraries/TownsquareTimeLibrary.sol";
+import {Constants} from "../libraries/Constants.sol";
 import {SafeCastLibrary} from "../libraries/SafeCastLibrary.sol";
 import {BalanceLogicLibrary} from "../libraries/BalanceLogicLibrary.sol";
 import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
 
 /// @title Reward
-/// @author velodrome.finance, @figs999, @pegahcarter
+/// @author towneSquare.finance,@Pelumi527
 /// @notice Base reward contract for distribution of rewards
-abstract contract Reward is IReward, ERC2771Context, ReentrancyGuardTransient {
+abstract contract Reward is IReward, Context, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
     using SafeCastLibrary for int128;
     using SafeCastLibrary for uint256;
 
     /// @inheritdoc IReward
-    uint256 public constant DURATION = 7 days;
+    uint256 public constant DURATION = Constants.EPOCH;
 
     /// @inheritdoc IReward
     address public immutable voter;
@@ -59,7 +64,7 @@ abstract contract Reward is IReward, ERC2771Context, ReentrancyGuardTransient {
     mapping(uint256 => IVotingEscrow.UserPoint[1000000000])
         internal _userRewardPointHistory;
 
-    constructor(address _forwarder, address _voter) ERC2771Context(_forwarder) {
+    constructor(address _voter) {
         voter = _voter;
         ve = IVoter(_voter).ve();
     }
