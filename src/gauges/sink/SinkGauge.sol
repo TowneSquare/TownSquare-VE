@@ -9,7 +9,7 @@ import {IMinter} from "../../interfaces/IMinter.sol";
 import {ISinkGauge} from "../../interfaces/sink/ISinkGauge.sol";
 import {TownsquareTimeLibrary} from "../../libraries/TownsquareTimeLibrary.sol";
 
-/// @title Velodrome Sink Gauge
+/// @title TownSquare Sink Gauge
 /// @notice Sink Gauge contract to send emissions back to minter
 contract SinkGauge is ISinkGauge, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;

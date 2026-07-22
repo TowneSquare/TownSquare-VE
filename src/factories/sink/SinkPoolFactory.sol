@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {SinkPool} from "../../sink/SinkPool.sol";
 import {ISinkPoolFactory} from "../../interfaces/factories/sink/ISinkPoolFactory.sol";
 
-/// @title Velodrome Sink Pool Factory
+/// @title TownSquare Sink Pool Factory
 contract SinkPoolFactory is ISinkPoolFactory {
     /// @inheritdoc ISinkPoolFactory
     address public immutable pool;

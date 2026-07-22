@@ -474,6 +474,11 @@ interface IVotingEscrow is IVotes, IERC4906, IERC6372, IERC721Metadata {
     /// @param _bool True to allow, false to disallow
     function toggleSplit(address _account, bool _bool) external;
 
+    /// @notice Create a permanently locked veNFT in a single transaction.
+    /// @param _value Amount of tokens to lock.
+    /// @return TokenId of created veNFT.
+    function createLockPermanent(uint256 _value) external returns (uint256);
+
     /// @notice Permanently lock a veNFT. Voting power will be equal to
     ///         `LockedBalance.amount` with no decay. Required to delegate.
     /// @dev Only callable by unlocked normal veNFTs.

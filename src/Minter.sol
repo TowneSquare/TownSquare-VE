@@ -30,6 +30,8 @@ contract Minter is IMinter {
     address public team;
     address public pendingTeam;
 
+    address[] public treasuries;
+
     constructor(address _town, address _team) {
         if (_town == address(0) || _team == address(0)) revert ZeroAddress();
         town = ITown(_town);
@@ -80,18 +82,39 @@ contract Minter is IMinter {
         emit EmissionAmountSet(emissions);
     }
 
+    function addTreasury(address _treasury) external onlyTeam {
+        if (_treasury == address(0)) revert ZeroAddress();
+        treasuries.push(_treasury);
+    }
+
+    function removeTreasury(address _treasury) external onlyTeam {
+        uint256 len = treasuries.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (treasuries[i] == _treasury) {
+                treasuries[i] = treasuries[len - 1];
+                treasuries.pop();
+                break;
+            }
+        }
+    }
+
     // ─── Emissions ────────────────────────────────────────────────────────────
+
+    function circulatingSupply() public view returns (uint256) {
+        uint256 excluded = town.balanceOf(address(this));
+        uint256 len = treasuries.length;
+        for (uint256 i = 0; i < len; i++) {
+            excluded += town.balanceOf(treasuries[i]);
+        }
+        return town.totalSupply() - excluded;
+    }
 
     function calculateGrowth(uint256 _minted) public view returns (uint256) {
         if (activePeriod == 0) return 0;
-        uint256 _veTotal = ve.totalSupplyAt(activePeriod - 1);
-        uint256 _townTotal = town.totalSupply();
+        uint256 _veTotal   = ve.totalSupplyAt(activePeriod - 1);
+        uint256 _townTotal = circulatingSupply();
         if (_townTotal == 0) return 0;
-        return
-            _minted
-                .mulDiv(_veTotal, _townTotal)
-                .mulDiv(_veTotal, _townTotal)
-                .mulDiv(_veTotal, _townTotal * 2);
+        return (((((_minted * _veTotal) / _townTotal) * _veTotal) / _townTotal) * _veTotal) / _townTotal / 2;
     }
 
     /// @inheritdoc IMinter

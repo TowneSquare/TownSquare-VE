@@ -26,9 +26,9 @@ import {
 } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TownsquareTimeLibrary} from "./libraries/TownsquareTimeLibrary.sol";
 
-/// @title Velodrome V2 Voter
+/// @title TownSquare Voter
 /// @author velodrome.finance, Solidly, @figs999, @pegahcarter
-/// @notice Manage votes, emission distribution, and gauge creation within the Velodrome ecosystem.
+/// @notice Manage votes, emission distribution, and gauge creation within the TownSquare ecosystem.
 ///         Also provides support for depositing and withdrawing from managed veNFTs.
 contract Voter is IVoter, ERC2771Context, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;

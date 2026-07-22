@@ -1184,7 +1184,18 @@ contract VotingEscrow is
 
     /// @inheritdoc IVotingEscrow
     function lockPermanent(uint256 _tokenId) external {
+        _lockPermanent(_msgSender(), _tokenId);
+    }
+
+    /// @inheritdoc IVotingEscrow
+    function createLockPermanent(uint256 _value) external nonReentrant returns (uint256) {
         address sender = _msgSender();
+        uint256 _tokenId = _createLock(_value, MAXTIME, sender);
+        _lockPermanent(sender, _tokenId);
+        return _tokenId;
+    }
+
+    function _lockPermanent(address sender, uint256 _tokenId) internal {
         if (!_isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
         if (escrowType[_tokenId] != EscrowType.NORMAL) revert NotNormalNFT();
         LockedBalance memory _newLocked = _locked[_tokenId];

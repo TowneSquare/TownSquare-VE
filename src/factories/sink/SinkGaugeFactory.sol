@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {SinkGauge} from "../../gauges/sink/SinkGauge.sol";
 import {ISinkGaugeFactory} from "../../interfaces/factories/sink/ISinkGaugeFactory.sol";
 
-/// @title Velodrome Sink Gauge Factory
+/// @title TownSquare Sink Gauge Factory
 contract SinkGaugeFactory is ISinkGaugeFactory {
     /// @inheritdoc ISinkGaugeFactory
     address public immutable gauge;

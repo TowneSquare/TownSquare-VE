@@ -7,5 +7,5 @@ pragma solidity ^0.8.24;
 ///         that import this library will automatically use the new value.
 library Constants {
     /// @notice Duration of one epoch in seconds (2 weeks)
-    uint256 internal constant EPOCH = 5 hours;
+    uint256 internal constant EPOCH = 24 hours;
 }

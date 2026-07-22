@@ -42,7 +42,10 @@ contract DeployProtocolHarness is DeployProtocol {
 ///      (test_RunReadsEnvAndDeploys) exercises the env-var path end-to-end.
 contract DeployProtocolTest is Test {
     uint256 constant DEPLOYER_KEY = 0xA11CE;
-    uint256 constant INITIAL_SUPPLY = 1_000_000_000 ether;
+    // Must match DeployProtocol.INITIAL_SUPPLY (fixed in-contract, not configurable).
+    uint256 constant INITIAL_SUPPLY = 10_000_000_000 ether;
+    // Must match the emissionAmount literal hardcoded in DeployProtocol.deploy().
+    uint256 constant EMISSION_AMOUNT = 10_000 ether;
 
     address deployer;
     address ccipAdmin = makeAddr("ccipAdmin");
@@ -61,18 +64,9 @@ contract DeployProtocolTest is Test {
     function _baseConfig() internal view returns (DeployProtocol.Config memory) {
         return
             DeployProtocol.Config({
-                forwarder: address(0),
                 ccipAdmin: ccipAdmin,
                 team: team,
-                loanController: address(loanController),
-                initialSupply: INITIAL_SUPPLY,
-                investorBps: 2000,
-                teamBps: 2000,
-                foundationBps: 1000,
-                communityBps: 3000,
-                ecosystemBps: 1500,
-                liquidityBps: 500,
-                emissionAmount: 0
+                loanController: address(loanController)
             });
     }
 
@@ -110,6 +104,7 @@ contract DeployProtocolTest is Test {
         assertEq(ve.distributor(), d.rewardsDistributor);
         assertEq(ve.token(), d.town);
         assertEq(ve.factoryRegistry(), d.factoryRegistry);
+        assertEq(ve.artProxy(), d.artProxy);
 
         assertEq(voter.ve(), d.ve);
         assertEq(voter.factoryRegistry(), d.factoryRegistry);
@@ -118,25 +113,25 @@ contract DeployProtocolTest is Test {
 
         assertEq(rd.minter(), d.minter);
 
-        // --- distribution buckets ---
+        // --- distribution buckets (fixed 18/15/20/37/9/1% split) ---
         TokenMinter tokenMinter = TokenMinter(d.tokenMinter);
-        assertEq(tokenMinter.investorShare(), (INITIAL_SUPPLY * 2000) / 10_000);
-        assertEq(tokenMinter.teamShare(), (INITIAL_SUPPLY * 2000) / 10_000);
+        assertEq(tokenMinter.investorShare(), (INITIAL_SUPPLY * 1800) / 10_000);
+        assertEq(tokenMinter.teamShare(), (INITIAL_SUPPLY * 1500) / 10_000);
         assertEq(
             tokenMinter.foundationShare(),
-            (INITIAL_SUPPLY * 1000) / 10_000
+            (INITIAL_SUPPLY * 2000) / 10_000
         );
         assertEq(
             tokenMinter.communityShare(),
-            (INITIAL_SUPPLY * 3000) / 10_000
+            (INITIAL_SUPPLY * 3700) / 10_000
         );
         assertEq(
             tokenMinter.ecosystemShare(),
-            (INITIAL_SUPPLY * 1500) / 10_000
+            (INITIAL_SUPPLY * 900) / 10_000
         );
         assertEq(
             tokenMinter.liquidityShare(),
-            (INITIAL_SUPPLY * 500) / 10_000
+            (INITIAL_SUPPLY * 100) / 10_000
         );
     }
 
@@ -165,13 +160,6 @@ contract DeployProtocolTest is Test {
         assertEq(address(minter.rewardsDistributor()), d.rewardsDistributor);
     }
 
-    function test_RevertWhen_BpsSharesDoNotSumTo10000() public {
-        DeployProtocol.Config memory cfg = _baseConfig();
-        cfg.liquidityBps = 501; // now sums to 10_001
-        vm.expectRevert(ITokenMinter.InvalidTotalPercent.selector);
-        _deploy(cfg);
-    }
-
     function test_RevertWhen_TeamIsZeroAddress() public {
         DeployProtocol.Config memory cfg = _baseConfig();
         cfg.team = address(0);
@@ -186,21 +174,22 @@ contract DeployProtocolTest is Test {
         _deploy(cfg);
     }
 
-    function test_ForwarderIsPropagatedToVeAndVoter() public {
-        DeployProtocol.Config memory cfg = _baseConfig();
-        cfg.forwarder = makeAddr("forwarder");
-        DeployProtocol.Deployment memory d = _deploy(cfg);
+    function test_NoForwarderIsWiredUpYet() public {
+        // No ERC-2771 relayer has been chosen yet; both contracts are
+        // deployed with forwarder = address(0) until that changes.
+        DeployProtocol.Deployment memory d = _deploy(_baseConfig());
 
-        assertEq(VotingEscrow(d.ve).forwarder(), cfg.forwarder);
-        assertEq(Voter(d.voter).forwarder(), cfg.forwarder);
+        assertEq(VotingEscrow(d.ve).forwarder(), address(0));
+        assertEq(Voter(d.voter).forwarder(), address(0));
     }
 
-    function test_EmissionAmountIsConfigurable() public {
+    function test_EmissionAmountIsFixedWhenTeamIsDeployer() public {
+        // emissionAmount is a hardcoded literal in deploy(), not configurable
+        // via Config — only set on Minter at all when team == deployer.
         DeployProtocol.Config memory cfg = _baseConfig();
         cfg.team = deployer;
-        cfg.emissionAmount = 42 ether;
         DeployProtocol.Deployment memory d = _deploy(cfg);
-        assertEq(Minter(d.minter).emissions(), 42 ether);
+        assertEq(Minter(d.minter).emissions(), EMISSION_AMOUNT);
     }
 
     /// @dev The only test that touches vm.setEnv, so there's nothing else in
@@ -210,13 +199,6 @@ contract DeployProtocolTest is Test {
         vm.setEnv("CCIP_ADMIN", vm.toString(ccipAdmin));
         vm.setEnv("TEAM", vm.toString(team));
         vm.setEnv("LOAN_CONTROLLER", vm.toString(address(loanController)));
-        vm.setEnv("INITIAL_SUPPLY", vm.toString(INITIAL_SUPPLY));
-        vm.setEnv("INVESTOR_BPS", "2000");
-        vm.setEnv("TEAM_BPS", "2000");
-        vm.setEnv("FOUNDATION_BPS", "1000");
-        vm.setEnv("COMMUNITY_BPS", "3000");
-        vm.setEnv("ECOSYSTEM_BPS", "1500");
-        vm.setEnv("LIQUIDITY_BPS", "500");
 
         DeployProtocol.Deployment memory d = deployScript.run();
 

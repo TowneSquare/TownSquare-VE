@@ -14,7 +14,7 @@ import {
 import {TownsquareTimeLibrary} from "../libraries/TownsquareTimeLibrary.sol";
 import {IGaugeFactory} from "../interfaces/factories/IGaugeFactory.sol";
 
-/// @title Velodrome V2 Gauge
+/// @title TownSquare Gauge
 /// @author veldorome.finance, @figs999, @pegahcarter
 /// @notice Gauge contract for distribution of emissions by address
 contract VeloGauge is ReentrancyGuardTransient {
